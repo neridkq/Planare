@@ -22,24 +22,50 @@ kakao_api = KakaoAPI()
 def get_kakao_code(request: Request):
     scope = 'profile_nickname, profile_image, account_email'  # 요청할 권한 범위
     kakao_auth_url = kakao_api.getcode_auth_url(scope)
+    print(kakao_auth_url)
     return RedirectResponse(kakao_auth_url)
 
-# # 카카오 로그인 후 카카오에서 리디렉션될 엔드포인트
-# # 카카오에서 제공한 인증 코드를 사용하여 액세스 토큰을 요청
-# @app.get("/oauth")
-# async def kakao_callback(request: Request, code: str):
-#     token_info = await kakao_api.get_token(code)
-#     if "access_token" in token_info:
-#         request.session['access_token'] = token_info['access_token']
-#         return RedirectResponse(url="/user_info", status_code=302)
-#     else:
-#         return RedirectResponse(url="/?error=Failed to authenticate", status_code=302)
+# 카카오 로그인 후 카카오에서 리디렉션될 엔드포인트
+# 카카오에서 제공한 인증 코드를 사용하여 액세스 토큰을 요청
+@app.get("/oauth")
+async def kakao_callback(request: Request, code: str):
+    token_info = await kakao_api.get_token(code)
+    if "access_token" in token_info:
+        request.session['access_token'] = token_info['access_token']
+        return RedirectResponse(url="http://localhost:5173/", status_code=302)
+    else:
+        return RedirectResponse(url="/?error=Failed to authenticate", status_code=302)
 
-# # 홈페이지 및 로그인/로그아웃 버튼을 표시
-# @app.get("/", response_class=HTMLResponse)
-# async def read_root(request: Request):
-#     logged_in = 'access_token' in request.session
-#     return templates.TemplateResponse("index.html", {"request": request, "client_id": kakao_api.client_id, "redirect_uri": kakao_api.redirect_uri, "logged_in": logged_in})
+# 홈페이지 및 로그인/로그아웃 버튼을 표시
+@app.get("/get_user_info", response_class=HTMLResponse) # TODO 이걸로 get_user_info 제작
+async def read_root(request: Request):
+    logged_in = 'access_token' in request.session
+    if logged_in:
+        access_token = request.session.get('access_token')
+        user_info = await kakao_api.get_user_info(access_token)
+        print("요청 전달 완료, logged_in true")
+        return JSONResponse(
+            {
+                "status": 200,
+                "data": user_info
+            }
+        )
+    else:
+        scope = 'profile_nickname, profile_image, account_email'  # 요청할 권한 범위
+        kakao_auth_url = kakao_api.getcode_auth_url(scope)
+        print("요청 전달 완료, logged_in false")
+        print(kakao_auth_url)
+        return JSONResponse({
+            "status": 401,
+            "data": {
+                "url": kakao_auth_url
+            } 
+        })
+        
+@app.get("/", response_class=HTMLResponse)
+async def read_root(request: Request):
+    logged_in = 'access_token' in request.session
+    return templates.TemplateResponse("index.html", {"request": request, "client_id": kakao_api.client_id, "redirect_uri": kakao_api.redirect_uri, "logged_in": logged_in})
 
 # # 로그인 처리를 위한 엔드포인트
 # # 이 예제에서는 사용되지 않으며, `/callback` 엔드포인트가 이 역할을 대신
@@ -47,15 +73,18 @@ def get_kakao_code(request: Request):
 # async def login(request: Request, code: str = Form(...)):
 #     raise HTTPException(status_code=400, detail="Kakao login failed")
 
-# # 로그아웃 처리를 위한 엔드포인트
-# # 세션에서 액세스 토큰을 제거하고 홈페이지로 리다이렉트
-# @app.get("/logout")
-# async def logout(request: Request):
-#     client_id = kakao_api.client_id
-#     logout_redirect_uri = kakao_api.logout_redirect_uri
-#     await kakao_api.logout(client_id, logout_redirect_uri)
-#     request.session.pop('access_token', None)
-#     return RedirectResponse(url="/")
+# 로그아웃 처리를 위한 엔드포인트
+# 세션에서 액세스 토큰을 제거하고 홈페이지로 리다이렉트
+@app.get("/logout")
+async def logout(request: Request):
+    client_id = kakao_api.client_id
+    logout_redirect_uri = kakao_api.logout_redirect_uri
+    await kakao_api.logout(client_id, logout_redirect_uri)
+    request.session.pop('access_token', None)
+    return JSONResponse({
+        "status": 200,
+        "msg": "로그아웃되었슴미다"
+    })
 
 # # 사용자 정보를 표시하기 위한 엔드포인트
 # # 세션에 저장된 액세스 토큰을 사용하여 카카오 API에서 사용자 정보를 가져옴
