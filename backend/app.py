@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, Form, HTTPException, Depends
+from fastapi import FastAPI, Request
 from starlette.middleware.sessions import SessionMiddleware
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
@@ -36,31 +36,19 @@ async def kakao_callback(request: Request, code: str):
     else:
         return RedirectResponse(url="/?error=Failed to authenticate", status_code=302)
 
-# 홈페이지 및 로그인/로그아웃 버튼을 표시
-@app.get("/get_user_info", response_class=HTMLResponse) # TODO 이걸로 get_user_info 제작
+
+@app.get("/get_user_info", response_class=HTMLResponse)
 async def read_root(request: Request):
     logged_in = 'access_token' in request.session
     if logged_in:
         access_token = request.session.get('access_token')
         user_info = await kakao_api.get_user_info(access_token)
-        print("요청 전달 완료, logged_in true")
-        return JSONResponse(
-            {
-                "status": 200,
-                "data": user_info
-            }
-        )
+        return JSONResponse(user_info).status_code(200)
     else:
         scope = 'profile_nickname, profile_image, account_email'  # 요청할 권한 범위
         kakao_auth_url = kakao_api.getcode_auth_url(scope)
-        print("요청 전달 완료, logged_in false")
         print(kakao_auth_url)
-        return JSONResponse({
-            "status": 401,
-            "data": {
-                "url": kakao_auth_url
-            } 
-        })
+        return JSONResponse({"url": kakao_auth_url}).status_code(401)
         
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
@@ -82,9 +70,8 @@ async def logout(request: Request):
     await kakao_api.logout(client_id, logout_redirect_uri)
     request.session.pop('access_token', None)
     return JSONResponse({
-        "status": 200,
         "msg": "로그아웃되었슴미다"
-    })
+    }).status_code(200)
 
 # # 사용자 정보를 표시하기 위한 엔드포인트
 # # 세션에 저장된 액세스 토큰을 사용하여 카카오 API에서 사용자 정보를 가져옴

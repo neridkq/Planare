@@ -9,6 +9,7 @@ function App() {
     const [loggedIn, setLoggedIn] = useState(null);
     const [userInfo, setUserInfo] = useState(null);
     const [loginUrl, setLoginUrl] = useState(null);
+    const ifLogined = () => {};
 
     useEffect(() => {
         axios.get('/api/get_user_info').then((res) => {
